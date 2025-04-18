@@ -1,3 +1,5 @@
+"use strict";
+
 class Canvas2DUtility {
   /**
    * @constructor
