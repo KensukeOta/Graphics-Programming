@@ -35,6 +35,16 @@ let image = null;
  * @type {number}
  */
 let startTime = null;
+/**
+ * 自機のX座標
+ * @type {number}
+ */
+let viperX = CANVAS_WIDTH / 2; // ここでは仮でcanvasの中心位置
+/**
+ * 自機のY座標
+ * @type {number}
+ */
+let viperY = CANVAS_HEIGHT / 2; // ここでは仮でcanvasの中心位置
 
 window.addEventListener("load", () => {
   // ユーティリティクラスを初期化
@@ -50,6 +60,8 @@ window.addEventListener("load", () => {
     image = loadedImage;
     // 初期化処理を行う
     initialize();
+    // イベントを設定する
+    eventSetting();
     // 実行開始時のタイムスタンプを取得する
     startTime = Date.now();
     // 描画処理を行う
@@ -63,20 +75,39 @@ function initialize() {
   canvas.height = CANVAS_HEIGHT;
 }
 
+/**
+ * イベントを設定する
+ */
+function eventSetting() {
+  // キーの押下時に呼び出されるイベントリスナーを設定する
+  window.addEventListener("keydown", (event) => {
+    // 入力されたキーに応じて処理内容を変化させる
+    switch (event.key) {
+      case "ArrowLeft": // 左矢印キー
+        viperX -= 10
+        break;
+      case "ArrowRight": // 右矢印キー
+        viperX += 10
+        break;
+      case "ArrowUp": // 上矢印キー
+        viperY -= 10
+        break;
+      case "ArrowDown": // 下矢印キー
+        viperY += 10
+        break;
+    }
+  }, false);
+}
+
 function render() {
   // 描画前に画面全体を不透明な明るいグレーで塗りつぶす
   util.drawRect(0, 0, canvas.width, canvas.height, "#eeeeee");
 
   // 現在までの経過時間を取得する（ミリ秒を秒に変換するため1000で除算）
   let nowTime = (Date.now() - startTime) / 1000;
-  // 時間の経過が見た目にわかりやすいように自機をサイン波で動かす
-  let s = Math.sin(nowTime);
-  // サインやコサインは半径1の円を基準にしているので、得られる値の範囲が
-  // -1.0〜1.0になるため、効果が分かりやすくなるように100倍する
-  let x = s * 100.0;
   
-  // 画像を描画する（canvasの中心位置を基準にサイン波で左右に往復するようにする）
-  ctx.drawImage(image, CANVAS_WIDTH / 2 + x, CANVAS_HEIGHT / 2);
+  // 画像を描画する（現在の viper の位置に準じた位置に描画する）
+  ctx.drawImage(image, viperX, viperY);
 
   // 恒常ループのために描画処理を再帰呼び出しする
   requestAnimationFrame(render);
