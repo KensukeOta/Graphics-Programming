@@ -146,11 +146,6 @@ class Viper extends Character {
      */
     this.comingEndPosition = null;
     /**
-     * 自身が持つショットインスタンスの配列
-     * @type {Array<Shot>}
-     */
-    this.shotArray = null;
-    /**
      * ショットを撃った後のチェック用カウンター
      * @type {number}
      */
@@ -159,6 +154,16 @@ class Viper extends Character {
      * ショットを撃つことができる間隔（フレーム数）
      */
     this.shotInterval = 10;
+    /**
+     * 自身が持つショットインスタンスの配列
+     * @type {Array<Shot>}
+     */
+    this.shotArray = null;
+    /**
+     * 自身が持つシングルショットインスタンスの配列
+     * @type {Array<Shot>}
+     */
+    this.singleShotArray = null;
   }
   
   /**
@@ -179,10 +184,12 @@ class Viper extends Character {
   /**
    * ショットを設定する
    * @param {Array<Shot>} shotArray - 自身に設定するショットの配列
+   * @param {Array<Shot>} singleShotArray - 自身に設定するシングルショットの配列
    */
-  setShotArray(shotArray) {
+  setShotArray(shotArray, singleShotArray) {
     // 自身のプロパティに設定する
     this.shotArray = shotArray;
+    this.singleShotArray = singleShotArray;
   }
 
   /**
@@ -233,11 +240,12 @@ class Viper extends Character {
 
       // キーの押下状態を調べてショットを生成する
       if (window.isKeyDown.key_z === true) {
+        let i;
         // ショットを撃てる状態なのかを確認する
         // ショットチェック用カウンターが0以上ならショットを生成できる
         if (this.shotCheckCounter >= 0) {
           // ショットの生存を確認し非生存のものがあれば生成する
-          for (let i = 0; i < this.shotArray.length; ++i) {
+          for (i = 0; i < this.shotArray.length; ++i) {
             // 非生存かどうかを確認する
             if (this.shotArray[i].life <= 0) {
               // 自機キャラクターの座標にショットを生成する
@@ -245,6 +253,22 @@ class Viper extends Character {
               // ショットを生成したのでインターバルを設定する
               this.shotCheckCounter = -this.shotInterval;
               // 1つ生成したらループを抜ける
+              break;
+            }
+          }
+          // シングルショットの生存を確認し非生存のものがあれば生成する
+          // このとき、2個をワンセットで生成し左右に進行方向を振り分ける
+          for (i = 0; i < this.singleShotArray.length; i += 2) {
+            // 非生存かどうかを確認する
+            if (this.singleShotArray[i].life <= 0 && this.singleShotArray[i + 1].life <= 0) {
+              // 自機キャラクターの座標にショットを生成する
+              this.singleShotArray[i].set(this.position.x, this.position.y);
+              this.singleShotArray[i].setVector(0.2, -0.9); // やや右に向かう
+              this.singleShotArray[i + 1].set(this.position.x, this.position.y);
+              this.singleShotArray[i + 1].setVector(-0.2, -0.9); // やや左に向かう
+              // ショットを生成したのでインターバルを設定する
+              this.shotCheckCounter = -this.shotInterval;
+              // 一組生成したらループを抜ける
               break;
             }
           }
@@ -283,6 +307,11 @@ class Shot extends Character {
      * @type {number}
      */
     this.speed = 7;
+    /**
+     * ショットの進行方向
+     * @type {Position}
+     */
+    this.vector = new Position(0.0, -1.0);
   }
 
   /**
@@ -298,6 +327,15 @@ class Shot extends Character {
   }
 
   /**
+   * ショットの進行方向を設定する
+   * @param {number} x - X方向の移動量
+   * @param {number} y - Y方向の移動量
+   */
+  setVector(x, y) {
+    this.vector.set(x, y); // 自身のvectorプロパティに設定する
+  }
+
+  /**
    * キャラクターの状態を更新し描画を行う
    */
   update() {
@@ -307,8 +345,9 @@ class Shot extends Character {
     if (this.position.y + this.height < 0) {
       this.life = 0;
     }
-    // ショットを上に向かって移動させる
-    this.position.y -= this.speed;
+    // ショットを進行方向に沿って移動させる
+    this.position.x += this.vector.x * this.speed;
+    this.position.y += this.vector.y * this.speed;
     // ショットを描画する
     this.draw();
   }
