@@ -368,11 +368,6 @@ class Shot extends Character {
      * @type {number}
      */
     this.speed = 7;
-    /**
-     * ショットの進行方向
-     * @type {Position}
-     */
-    this.vector = new Position(0.0, -1.0);
   }
 
   /**
@@ -380,11 +375,24 @@ class Shot extends Character {
    * @param {number} x - 配置するX座標
    * @param {number} y - 配置するY座標
    */
-  set(x, y) {
+  set(x, y, speed) {
     // 登場開始位置にショットを移動させる
     this.position.set(x, y);
     // ショットのライフを0より大きい値（生存の状態）に設定する
     this.life = 1;
+    // スピードを設定する
+    this.setSpeed(speed);
+  }
+
+  /**
+   * ショットのスピードを設定する
+   * @param {number} [speed] - 設定するスピード
+   */
+  setSpeed(speed){
+    // もしスピード引数が有効なら設定する
+    if(speed != null && speed > 0){
+        this.speed = speed;
+    }
   }
 
   /**
@@ -423,10 +431,25 @@ class Enemy extends Character {
     super(ctx, x, y, w, h, 0, imagePath)
 
     /**
+     * 自身のタイプ
+     * @type {string}
+     */
+    this.type = 'default';
+    /**
+     * 自身が出現してからのフレーム数
+     * @type {number}
+     */
+    this.frame = 0;
+    /**
      * 自身の移動スピード（update1回あたりの移動量）
      * @type {number}
      */
     this.speed = 3;
+    /**
+     * 自身が持つショットインスタンスの配列
+     * @type {Array<Shot>}
+     */
+    this.shotArray = null;
   }
 
   /**
@@ -434,12 +457,26 @@ class Enemy extends Character {
    * @param {number} x - 配置する X座標
    * @param {number} y - 配置する Y座標
    * @param {number} [life=1] - 設定するライフ
+   * @param {string} [type='default'] - 設定するタイプ
    */
-  set(x, y, life = 1) {
+  set(x, y, life = 1, type = "default") {
     // 登場開始時に敵キャラクターを移動させる
     this.position.set(x, y);
     // 敵キャラクターライフを0より大きい値（生存の状態）に設定する
     this.life = life;
+    // 敵キャラクターのタイプを設定する
+    this.type = type;
+    // 敵キャラクターのフレームをリセットする
+    this.frame = 0;
+  }
+
+  /**
+   * ショットを設定する
+   * @param {Array<Shot>} shotArray - 自身に設定するショットの配列
+   */
+  setShotArray(shotArray){
+    // 自身のプロパティに設定する
+    this.shotArray = shotArray;
   }
 
   /**
@@ -448,15 +485,51 @@ class Enemy extends Character {
   update() {
     // もし敵キャラクターのライフが0以下の場合は何もしない
     if (this.life <= 0) { return; }
-    // もし敵キャラクターが画面外（画面下端）へ移動していたらライフを0（非生存の状態）に設定する
-    if (this.position.y - this.height > this.ctx.canvas.height) {
-      this.life = 0;
+
+    // タイプに応じて挙動を変える
+    // タイプに応じてライフを0にする条件も変える
+    switch (this.type) {
+      // defaultタイプは設定されている進行方向にまっすぐ進むだけの挙動
+      case "default":
+        // 配置後のフレームが50のときにショットを放つ
+        if (this.frame === 50) {
+          this.fire();
+        }
+        // 敵キャラクターを進行方向に沿って移動させる
+        this.position.x += this.vector.x * this.speed;
+        this.position.y += this.vector.y * this.speed;
+        // もし敵キャラクターが画面外（画面下端）へ移動していたらライフを0（非生存の状態）に設定する
+        if (this.position.y - this.height > this.ctx.canvas.height) {
+          this.life = 0;
+        }
+        break;
     }
-    // 敵キャラクターを進行方向に沿って移動させる
-    this.position.x += this.vector.x * this.speed;
-    this.position.y += this.vector.y * this.speed;
 
     // 描画を行う（いまのところ、回転は必要としていないのでそのまま描画）
     this.draw();
+    // 自身のフレームをインクリメントする
+    ++this.frame;
+  }
+
+  /**
+   * 自身から指定された方向にショットを放つ
+   * @param {number} [x=0.0] - 進行方向ベクトルの X 要素
+   * @param {number} [y=1.0] - 進行方向ベクトルの Y 要素
+   */
+  fire(x = 0.0, y = 1.0) {
+    // ショットの生存を確認し非生存のものがあれば生成する
+    for (let i = 0; i < this.shotArray.length; ++i) {
+      // 非生存かどうかを確認する
+      if (this.shotArray[i].life <= 0) {
+        // 敵キャラクターの座標にショットを生成する
+        this.shotArray[i].set(this.position.x, this.position.y);
+        // ショットのスピードを設定する
+        this.shotArray[i].setSpeed(5.0);
+        // ショットの進行方向を設定する（真下）
+        this.shotArray[i].setVector(x, y);
+        // ひとつ生成したらループを抜ける
+        break;
+      }
+    }
   }
 }
