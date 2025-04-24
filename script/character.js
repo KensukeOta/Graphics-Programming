@@ -405,3 +405,58 @@ class Shot extends Character {
     this.rotationDraw();
   }
 }
+
+/**
+ * 敵キャラクタークラス
+ */
+class Enemy extends Character {
+  /**
+   * @constructor
+   * @param {CanvasRenderingContext2D} ctx - 描画などに利用する2Dコンテキスト
+   * @param {number} x - X座標
+   * @param {number} y - Y座標
+   * @param {number} w - 幅
+   * @param {number} h - 高さ
+   * @param {Image} imagePath - キャラクター用の画像のパス
+   */
+  constructor(ctx, x, y, w, h, imagePath) {
+    super(ctx, x, y, w, h, 0, imagePath)
+
+    /**
+     * 自身の移動スピード（update1回あたりの移動量）
+     * @type {number}
+     */
+    this.speed = 3;
+  }
+
+  /**
+   * 
+   * @param {number} x - 配置する X座標
+   * @param {number} y - 配置する Y座標
+   * @param {number} [life=1] - 設定するライフ
+   */
+  set(x, y, life = 1) {
+    // 登場開始時に敵キャラクターを移動させる
+    this.position.set(x, y);
+    // 敵キャラクターライフを0より大きい値（生存の状態）に設定する
+    this.life = life;
+  }
+
+  /**
+   * キャラクターの状態を更新し描画を行う
+   */
+  update() {
+    // もし敵キャラクターのライフが0以下の場合は何もしない
+    if (this.life <= 0) { return; }
+    // もし敵キャラクターが画面外（画面下端）へ移動していたらライフを0（非生存の状態）に設定する
+    if (this.position.y - this.height > this.ctx.canvas.height) {
+      this.life = 0;
+    }
+    // 敵キャラクターを進行方向に沿って移動させる
+    this.position.x += this.vector.x * this.speed;
+    this.position.y += this.vector.y * this.speed;
+
+    // 描画を行う（いまのところ、回転は必要としていないのでそのまま描画）
+    this.draw();
+  }
+}
