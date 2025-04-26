@@ -33,7 +33,12 @@
    * 敵キャラクターのショットの最大個数
    * @type {number}
    */
-  const ENEMY_SHOT_MAX_COUNT = 50
+  const ENEMY_SHOT_MAX_COUNT = 50;
+  /**
+   * 爆発エフェクトの最大個数
+   * @type {number}
+   */
+  const EXPLOSION_MAX_COUNT = 10;
   /**
    * Canvas2D API をラップしたユーティリティクラス
    * @type {Canvas2DUtility}
@@ -80,6 +85,11 @@
    */
   let enemyArray = [];
   /**
+   * 爆発エフェクトのインスタンスを格納する配列
+   * @type {Array<Explosion>}
+   */
+  let explosionArray = [];
+  /**
    * シーンマネージャー
    * @type {SceneManager}
    */
@@ -110,6 +120,11 @@
 
     // シーンを初期化する
     scene = new SceneManager();
+
+    // 爆発エフェクトを初期化する
+    for (i = 0; i < EXPLOSION_MAX_COUNT; ++i) {
+      explosionArray[i] = new Explosion(ctx, 50.0, 15, 30.0, 0.25);
+    }
   
     // ショットを初期化する
     for (i = 0; i < SHOT_MAX_COUNT; ++i) {
@@ -143,10 +158,14 @@
     }
 
     // 衝突判定を行うために対象を設定する
-    for(i = 0; i < SHOT_MAX_COUNT; ++i){
-        shotArray[i].setTargets(enemyArray);
-        singleShotArray[i * 2].setTargets(enemyArray);
-        singleShotArray[i * 2 + 1].setTargets(enemyArray);
+    // 爆発エフェクトを行うためにショットに設定する
+    for (i = 0; i < SHOT_MAX_COUNT; ++i) {
+      shotArray[i].setTargets(enemyArray);
+      singleShotArray[i * 2].setTargets(enemyArray);
+      singleShotArray[i * 2 + 1].setTargets(enemyArray);
+      shotArray[i].setExplosions(explosionArray);
+      singleShotArray[i * 2].setExplosions(explosionArray);
+      singleShotArray[i * 2 + 1].setExplosions(explosionArray);
     }
   }
 
@@ -274,6 +293,11 @@
 
     // 敵キャラクターのショットの状態を更新する
     enemyShotArray.map((v) => {
+      v.update();
+    });
+
+    // 爆発エフェクトの状態を更新する
+    explosionArray.map((v) => {
       v.update();
     });
     
