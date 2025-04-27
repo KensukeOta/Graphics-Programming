@@ -498,6 +498,11 @@ class Shot extends Character {
               break;
             }
           }
+          // もし対象が敵キャラクターの場合はスコアを加算する
+          if (v instanceof Enemy === true) {
+            // スコアシステムによるが、仮でここでは最大スコアを制限
+            gameScore = Math.min(gameScore + 100, 99999);
+          }
         }
         this.life = 0; // 自身のライフを0にする
       }
