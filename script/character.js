@@ -628,7 +628,7 @@ class Explosion {
   /**
    * 
    * @param {CanvasRenderingContext2D} ctx - 描画などに利用する2Dコンテキスト
-   * @param {number} radius - 爆春の広がりの半径
+   * @param {number} radius - 爆発の広がりの半径
    * @param {number} count - 爆発の火花の数
    * @param {number} size - 爆発の火花の大きさ（幅、高さ）
    * @param {number} timeRange - 爆発が消えるまでの時間（秒単位）
@@ -733,7 +733,8 @@ class Explosion {
     // 爆発が発生してからの経過時間を求める
     let time = (Date.now() - this.startTime) / 1000;
     // 爆発終了までの時間で正規化して進捗度合いを算出する
-    let progress = Math.min(time / this.timeRange, 1.0);
+    let ease = simpleEaseIn(1.0 - Math.min(time / this.timeRange, 1.0));
+    let progress = 1.0 - ease;
 
     // 進捗度合いに応じた位置に火花を描画する
     for (let i = 0; i < this.firePosition.length; ++i) {
@@ -758,4 +759,8 @@ class Explosion {
       this.life = false;
     }
   }
+}
+
+function simpleEaseIn(t) {
+  return t * t * t * t;
 }
