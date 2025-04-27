@@ -675,11 +675,6 @@ class Explosion {
      */
     this.timeRange = timeRange;
     /**
-     * 火花の1つあたりの大きさ（幅、高さ）
-     * @type {number}
-     */
-    this.fireSize = size;
-    /**
      * 火花の位置を格納する
      * @type {Array<Position>}
     */
@@ -689,6 +684,14 @@ class Explosion {
      * @type {Array<Position>}
      */
     this.fireVector = [];
+    /**
+     * @type {number} - 火花の1つあたりの最大の大きさ
+     */
+    this.fireBaseSize = size;
+    /**
+     * @type {Array<Position>} - 火花の1つあたりの大きさを格納する
+     */
+    this.fireSize = [];
   }
 
   /**
@@ -702,11 +705,15 @@ class Explosion {
       // 引数を元に位置を決める
       this.firePosition[i] = new Position(x, y);
       // ランダムに火花が進む方向（となるラジアン）を決める
-      let r = Math.random() * Math.PI * 2.0;
+      let vr = Math.random() * Math.PI * 2.0;
       // ラジアンを元にサインとコサインを生成し進行方向に設定する
-      let s = Math.sin(r);
-      let c = Math.cos(r);
-      this.fireVector[i] = new Position(c, s);
+      let s = Math.sin(vr);
+      let c = Math.cos(vr);
+      // 進行方向ベクトルの長さをランダムに短くし移動量をランダム化する
+      let mr = Math.random();
+      this.fireVector[i] = new Position(c * mr, s * mr);
+      // 火花の大きさをランダム化する
+      this.fireSize[i] = (Math.random() * 0.5 + 0.5) * this.fireBaseSize;
     }
     // 爆発の生存状態を設定
     this.life = true;
@@ -735,12 +742,14 @@ class Explosion {
       // 広がる距離分だけ移動した位置
       let x = this.firePosition[i].x + this.fireVector[i].x * d;
       let y = this.firePosition[i].y + this.fireVector[i].y * d;
+      // 進捗を描かれる大きさにも反映させる
+      let s = 1.0 - progress;
       // 矩形を描画する
       this.ctx.fillRect(
-        x - this.fireSize / 2,
-        y - this.fireSize / 2,
-        this.fireSize,
-        this.fireSize
+        x - (this.fireSize[i] * s) / 2,
+        y - (this.fireSize[i] * s) / 2,
+        this.fireSize[i] * s,
+        this.fireSize[i] * s
       );
     }
 
