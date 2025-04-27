@@ -94,6 +94,11 @@
    * @type {SceneManager}
    */
   let scene = null;
+  /**
+   * 再スタートするためのフラグ
+   * @type {boolean}
+   */
+  let restart = false;
   
   window.addEventListener("load", () => {
     // ユーティリティクラスを初期化
@@ -148,6 +153,8 @@
     // 敵キャラクターのショットを初期化する
     for (i = 0; i < ENEMY_SHOT_MAX_COUNT; ++i) {
       enemyShotArray[i] = new Shot(ctx, 0, 0, 32, 32, "./image/enemy_shot.png");
+      enemyShotArray[i].setTargets([viper]); // 引数は配列なので注意
+      enemyShotArray[i].setExplosions(explosionArray);
     }
 
     // 敵キャラクターを初期化する
@@ -218,6 +225,14 @@
     window.addEventListener("keydown", (event) => {
       // キーの押下状態を管理するオブジェクトに押下されたことを設定する
       isKeyDown[`key_${event.key}`] = true;
+      // ゲームオーバーから再スタートするための設定（Enterキー）
+      if (event.key === "Enter") {
+        // 自機キャラクターのライフが0以下の状態
+        if (viper.life <= 0) {
+          // 再スタートフラグを立てる
+          restart = true;
+        }
+      }
     }, false);
     // キーが離された時に呼び出されるイベントリスナーを設定する 
     window.addEventListener("keyup", (event) => {
@@ -256,6 +271,37 @@
       // シーンのフレーム数が100になったときに再度invadeを設定する
       if (scene.frame === 100) {
         scene.use("invade");
+      }
+      // 自機キャラクターが被弾してライフが0にになっていたらゲームオーバー
+      if (viper.life <= 0) {
+        scene.use("gameover");
+      }
+    });
+    // ゲームオーバーシーン
+    // ここでは画面にゲームオーバーの文字が流れ続けるようにする
+    scene.add("gameover", (time) => {
+      // 流れる文字の幅は画面の幅の半分を最大の幅とする
+      let textWidth = CANVAS_WIDTH / 2;
+      // 文字の幅を全体の幅に足し、ループする幅を決める
+      let loopWidth = CANVAS_WIDTH + textWidth;
+      // フレーム数に対する除算の剰余を計算し、文字列の位置とする
+      let x = CANVAS_WIDTH - (scene.frame * 2) % loopWidth;
+      // 文字列の描画
+      ctx.font = "bold 72px sans-serif";
+      util.drawText("GAME OVER", x, CANVAS_HEIGHT / 2, "#ff0000", textWidth);
+      // 再スタートのための処理
+      if (restart === true) {
+        // 再スタートフラグはここで最初に下げておく
+        restart = false;
+        // 再度スタートするための座標等の設定
+        viper.setComing(
+          CANVAS_WIDTH / 2,    // 登場演出時の開始X座標
+          CANVAS_HEIGHT + 50,  // 登場演出時の開始Y座標
+          CANVAS_WIDTH / 2,    // 登場演出を終了とするX座標
+          CANVAS_HEIGHT - 100, // 登場演出を終了とするY座標
+        );
+        // シーンをintroに設定
+        scene.use("intro");
       }
     });
     // 最初のシーンにはintroを設定する

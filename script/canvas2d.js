@@ -42,6 +42,22 @@ class Canvas2DUtility {
   }
 
   /**
+   * テキストを描画する
+   * @param {string} text - 描画するテキスト
+   * @param {number} x - テキストを描画する位置の X 座標
+   * @param {number} y - テキストを描画する位置の Y 座標
+   * @param {string} [color] - テキストを描画する際の色
+   * @param {number} [width] - テキストを描画する幅に上限を設定する際の上限値
+   */
+  drawText(text, x, y, color, width){
+    // 色が指定されている場合はスタイルを設定する
+    if(color != null){
+        this.context2d.fillStyle = color;
+    }
+    this.context2d.fillText(text, x, y, width);
+  }
+
+  /**
    * 画像をロードしてコールバック関数にロードした画像を与え呼び出す
    * @param {string} path - 画像ファイルのパス
    * @param {function} [callback] - コールバック関数

@@ -242,6 +242,8 @@ class Viper extends Character {
    * @param {number} endY - 登場終了とするY座標
    */
   setComing(startX, startY, endX, endY) {
+    // 自機キャラクターのライフを1に設定する（復活する際を考慮）
+    this.life = 1;
     this.isComing = true; // 登場中のフラグを立てる
     this.comingStart = Date.now(); // 登場開始時のタイムスタンプを取得する
     this.position.set(startX, startY); // 登場開始位置に自機を移動させる
@@ -264,6 +266,8 @@ class Viper extends Character {
    * キャラクターの状態を更新し描画を行う
    */
   update() {
+    // ライフが尽きていたら何も操作できないようにする
+    if (this.life <= 0) { return; }
     // 現時点のタイムスタンプを取得する
     let justTime = Date.now();
     
@@ -480,6 +484,10 @@ class Shot extends Character {
       let dist = this.position.distance(v.position); // 自身の位置と対象との距離を測る
       // 自身と対象の幅の1/4の距離まで近づいている場合衝突とみなす
       if (dist <= (this.width + v.width) / 4) {
+        // 自機キャラクターが対象の場合、isComingフラグによって無敵になる
+        if (v instanceof Viper === true) {
+          if (v.isComing === true) { return; }
+        }
         v.life -= this.power; // 対象のライフを攻撃力分減算する
         // もし対象のライフが0以下になっていたら爆発エフェクトを発生させる
         if (v.life <= 0) {
