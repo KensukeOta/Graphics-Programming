@@ -48,6 +48,16 @@
    */
   const EXPLOSION_MAX_COUNT = 10;
   /**
+   * 敵キャラクター（小）のインスタンス数
+   * @type {number}
+   */
+  const ENEMY_SMALL_MAX_COUNT = 20;
+  /**
+   * 敵キャラクター（大）のインスタンス数
+   * @type {number}
+   */
+  const ENEMY_LARGE_MAX_COUNT = 5;
+  /**
    * Canvas2D API をラップしたユーティリティクラス
    * @type {Canvas2DUtility}
    */
@@ -136,7 +146,7 @@
 
     // 爆発エフェクトを初期化する
     for (i = 0; i < EXPLOSION_MAX_COUNT; ++i) {
-      explosionArray[i] = new Explosion(ctx, 50.0, 15, 30.0, 0.25);
+      explosionArray[i] = new Explosion(ctx, 100.0, 15, 40.0, 1.0);
     }
   
     // ショットを初期化する
@@ -165,11 +175,22 @@
       enemyShotArray[i].setExplosions(explosionArray);
     }
 
-    // 敵キャラクターを初期化する
-    for (i = 0; i < ENEMY_MAX_COUNT; ++i) {
+    // 敵キャラクター（小）を初期化する
+    for (i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
       enemyArray[i] = new Enemy(ctx, 0, 0, 48, 48, "./image/enemy_small.png");
       // 敵キャラクターはすべて同じショットを共有するのでここで与えておく
       enemyArray[i].setShotArray(enemyShotArray);
+      // 敵キャラクターは常に自機キャラクターを攻撃対象とする
+      enemyArray[i].setAttackTarget(viper);
+    }
+
+    // 敵キャラクター（大）を初期化する
+    for (i = 0; i < ENEMY_LARGE_MAX_COUNT; ++i) {
+      enemyArray[ENEMY_SMALL_MAX_COUNT + i] = new Enemy(ctx, 0, 0, 64, 64, "./image/enemy_large.png");
+      // 敵キャラクターはすべて同じショットを共有するのでここで与えておく
+      enemyArray[ENEMY_SMALL_MAX_COUNT + i].setShotArray(enemyShotArray);
+      // 敵キャラクターは常に自機キャラクターを攻撃対象とする
+      enemyArray[ENEMY_SMALL_MAX_COUNT + i].setAttackTarget(viper);
     }
 
     // 衝突判定を行うために対象を設定する
@@ -254,69 +275,142 @@
   function sceneSetting() {
     // イントロシーン
     scene.add("intro", (time) => {
-      // 2秒経過したらシーンをinvadeに変更する
-      if (time > 2.0) {
-        scene.use("invade");
+      // 3 秒経過したらシーンを invade_default_type に変更する
+      if (time > 3.0) {
+        scene.use("invade_default_type");
       }
     });
-    // invadeシーン
-    scene.add("invade", (time) => {
-      // シーンのフレーム数が0のときは敵キャラクターを配置する
-      if (scene.frame === 0) {
-        // ライフが0の状態の敵キャラクターが見つかったら配置する
-        for (let i = 0; i < ENEMY_MAX_COUNT; ++i) {
+    // invade シーン（default type の敵キャラクターを生成）
+    scene.add("invade_default_type", (time) => {
+      // シーンのフレーム数が 30 で割り切れるときは敵キャラクターを配置する
+      if (scene.frame % 30 === 0) {
+        // ライフが 0 の状態の敵キャラクター（小）が見つかったら配置する
+        for (let i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
           if (enemyArray[i].life <= 0) {
             let e = enemyArray[i];
-            // 出現場所はXが画面中央、Yが画面上端の外側に設定する
-            // この敵キャラクターのライフを 2 に設定する
-            e.set(CANVAS_WIDTH / 2, -e.height, 2, 'default');
-            // 進行方向は真下に向かうように設定する
-            e.setVector(0.0, 1.0);
+            // ここからさらに２パターンに分ける
+            // frame を 60 で割り切れるかどうかで分岐する
+            if (scene.frame % 60 === 0) {
+              // 左側面から出てくる
+              e.set(-e.width, 30, 2, "default");
+              // 進行方向は 30 度の方向
+              e.setVectorFromAngle(degreesToRadians(30));
+            } else {
+              // 右側面から出てくる
+              e.set(CANVAS_WIDTH + e.width, 30, 2, "default");
+              // 進行方向は 150 度の方向
+              e.setVectorFromAngle(degreesToRadians(150));
+            }
             break;
           }
         }
       }
-      // シーンのフレーム数が100になったときに再度invadeを設定する
-      if (scene.frame === 100) {
-        scene.use("invade");
+      // シーンのフレーム数が 270 になったとき次のシーンへ
+      if (scene.frame === 270) {
+        scene.use("blank");
       }
-      // 自機キャラクターが被弾してライフが0にになっていたらゲームオーバー
+      // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
       if (viper.life <= 0) {
         scene.use("gameover");
       }
-    });
-    // ゲームオーバーシーン
-    // ここでは画面にゲームオーバーの文字が流れ続けるようにする
-    scene.add("gameover", (time) => {
-      // 流れる文字の幅は画面の幅の半分を最大の幅とする
-      let textWidth = CANVAS_WIDTH / 2;
-      // 文字の幅を全体の幅に足し、ループする幅を決める
-      let loopWidth = CANVAS_WIDTH + textWidth;
-      // フレーム数に対する除算の剰余を計算し、文字列の位置とする
-      let x = CANVAS_WIDTH - (scene.frame * 2) % loopWidth;
-      // 文字列の描画
-      ctx.font = "bold 72px sans-serif";
-      util.drawText("GAME OVER", x, CANVAS_HEIGHT / 2, "#ff0000", textWidth);
-      // 再スタートのための処理
-      if (restart === true) {
-        // 再スタートフラグはここで最初に下げておく
-        restart = false;
-        // スコアをリセットしておく
-        gameScore = 0;
-        // 再度スタートするための座標等の設定
-        viper.setComing(
-          CANVAS_WIDTH / 2,    // 登場演出時の開始X座標
-          CANVAS_HEIGHT + 50,  // 登場演出時の開始Y座標
-          CANVAS_WIDTH / 2,    // 登場演出を終了とするX座標
-          CANVAS_HEIGHT - 100, // 登場演出を終了とするY座標
-        );
-        // シーンをintroに設定
-        scene.use("intro");
-      }
-    });
-    // 最初のシーンにはintroを設定する
-    scene.use("intro");
-  }
+      });
+      // 間隔調整のための空白のシーン
+      scene.add("blank", (time) => {
+        // シーンのフレーム数が 150 になったとき次のシーンへ
+        if (scene.frame === 150) {
+          scene.use("invade_wave_move_type");
+        }
+        // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+        if (viper.life <= 0) {
+          scene.use("gameover");
+        }
+      });
+      // invade シーン（wave move type の敵キャラクターを生成）
+      scene.add("invade_wave_move_type", (time) => {
+          // シーンのフレーム数が 50 で割り切れるときは敵キャラクターを配置する
+          if (scene.frame % 50 === 0) {
+            // ライフが 0 の状態の敵キャラクター（小）が見つかったら配置する
+            for (let i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
+              if (enemyArray[i].life <= 0) {
+                let e = enemyArray[i];
+                // ここからさらに２パターンに分ける
+                // frame が 200 以下かどうかで分ける
+                if (scene.frame <= 200) {
+                  // 左側を進む
+                  e.set(CANVAS_WIDTH * 0.2, -e.height, 2, "wave");
+                } else {
+                  // 右側を進む
+                  e.set(CANVAS_WIDTH * 0.8, -e.height, 2, "wave");
+                }
+                break;
+              }
+            }
+          }
+          // シーンのフレーム数が 450 になったとき次のシーンへ
+          if (scene.frame === 450) {
+            scene.use("invade_large_type");
+          }
+          // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+          if (viper.life <= 0) {
+            scene.use("gameover");
+          }
+      });
+      // invade シーン（large type の敵キャラクターを生成）
+      scene.add("invade_large_type", (time) => {
+        // シーンのフレーム数が 100 になった際に敵キャラクター（大）を配置する
+        if (scene.frame === 100) {
+          // ライフが 0 の状態の敵キャラクター（大）が見つかったら配置する
+          let i = ENEMY_SMALL_MAX_COUNT + ENEMY_LARGE_MAX_COUNT;
+          for (let j = ENEMY_SMALL_MAX_COUNT; j < i; ++j) {
+            if (enemyArray[j].life <= 0) {
+              let e = enemyArray[j];
+              // 画面中央あたりから出現しライフが多い
+              e.set(CANVAS_WIDTH / 2, -e.height, 50, "large");
+              break;
+            }
+          }
+        }
+        // シーンのフレーム数が 500 になったとき intro へ
+        if (scene.frame === 500) {
+          scene.use("intro");
+        }
+        // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+        if (viper.life <= 0) {
+          scene.use("gameover");
+        }
+      });
+      // ゲームオーバーシーン
+      // ここでは画面にゲームオーバーの文字が流れ続けるようにする
+      scene.add("gameover", (time) => {
+        // 流れる文字の幅は画面の幅の半分を最大の幅とする
+        let textWidth = CANVAS_WIDTH / 2;
+        // 文字の幅を全体の幅に足し、ループする幅を決める
+        let loopWidth = CANVAS_WIDTH + textWidth;
+        // フレーム数に対する除算の剰余を計算し、文字列の位置とする
+        let x = CANVAS_WIDTH - (scene.frame * 2) % loopWidth;
+        // 文字列の描画
+        ctx.font = "bold 72px sans-serif";
+        util.drawText("GAME OVER", x, CANVAS_HEIGHT / 2, "#ff0000", textWidth);
+        // 再スタートのための処理
+        if (restart === true) {
+          // 再スタートフラグはここでまず最初に下げておく
+          restart = false;
+          // スコアをリセットしておく
+          gameScore = 0;
+          // 再度スタートするための座標等の設定
+          viper.setComing(
+            CANVAS_WIDTH / 2,   // 登場演出時の開始 X 座標
+            CANVAS_HEIGHT + 50, // 登場演出時の開始 Y 座標
+            CANVAS_WIDTH / 2,   // 登場演出を終了とする X 座標
+            CANVAS_HEIGHT - 100 // 登場演出を終了とする Y 座標
+          );
+          // シーンを intro に設定
+          scene.use("intro");
+        }
+      });
+      // 一番最初のシーンには intro を設定する
+      scene.use("intro");
+    }
   
   function render() {
     // グローバルなアルファを必ず1.0で描画処理を開始する
@@ -363,6 +457,14 @@
     
     // 恒常ループのために描画処理を再帰呼び出しする
     requestAnimationFrame(render);
+  }
+
+  /**
+   * 度数法の角度からラジアンを生成する
+   * @param {number} degrees - 度数法の度数
+   */
+  function degreesToRadians(degrees) {
+    return degrees * Math.PI / 180;
   }
 
   /**
