@@ -68,6 +68,11 @@
    */
   const BACKGROUND_STAR_MAX_SPEED = 4;
   /**
+   * ボスキャラクターのホーミングショットの最大個数
+   * @type {number}
+   */
+  const HOMING_MAX_COUNT = 50;
+  /**
    * Canvas2D API をラップしたユーティリティクラス
    * @type {Canvas2DUtility}
    */
@@ -137,6 +142,16 @@
    * @type {Sound}
    */
   let sound = null;
+  /**
+   * ボスキャラクターのインスタンスを格納する配列
+   * @type {Boss}
+   */
+  let boss = null;
+  /**
+   * ボスキャラクターのホーミングショットのインスタンスを格納する配列
+   * @type {Array<Homing>}
+   */
+  let homingArray = [];
   
   window.addEventListener("load", () => {
     // ユーティリティクラスを初期化
@@ -186,7 +201,7 @@
       explosionArray[i].setSound(sound);
     }
   
-    // ショットを初期化する
+    // 自機のショットを初期化する
     for (i = 0; i < SHOT_MAX_COUNT; ++i) {
       shotArray[i] = new Shot(ctx, 0, 0, 32, 32, "./image/viper_shot.png");
       singleShotArray[i * 2] = new Shot(ctx, 0, 0, 32, 32, "./image/viper_single_shot.png");
@@ -212,6 +227,22 @@
       enemyShotArray[i].setExplosions(explosionArray);
     }
 
+    // ボスキャラクターのホーミングショットを初期化する
+    for (i = 0; i < HOMING_MAX_COUNT; ++i) {
+      homingArray[i] = new Homing(ctx, 0, 0, 32, 32, "./image/homing_shot.png");
+      homingArray[i].setTargets([viper]); // 引数は配列なので注意
+      homingArray[i].setExplosions(explosionArray);
+    }
+
+    // ボスキャラクターを初期化する
+    boss = new Boss(ctx, 0, 0, 128, 128, "./image/boss.png");
+    // 敵キャラクターはすべて同じショットを共有するのでここで与えておく
+    boss.setShotArray(enemyShotArray);
+    // ボスキャラクターはホーミングショットを持っているので設定する
+    boss.setHomingArray(homingArray);
+    // 敵キャラクターは常に自機キャラクターを攻撃対象とする
+    boss.setAttackTarget(viper);
+
     // 敵キャラクター（小）を初期化する
     for (i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
       enemyArray[i] = new Enemy(ctx, 0, 0, 48, 48, "./image/enemy_small.png");
@@ -230,12 +261,15 @@
       enemyArray[ENEMY_SMALL_MAX_COUNT + i].setAttackTarget(viper);
     }
 
+    // ボスキャラクターも衝突判定の対象とするために配列に加えておく
+    let concatEnemyArray = enemyArray.concat([boss]);
+
     // 衝突判定を行うために対象を設定する
     // 爆発エフェクトを行うためにショットに設定する
     for (i = 0; i < SHOT_MAX_COUNT; ++i) {
-      shotArray[i].setTargets(enemyArray);
-      singleShotArray[i * 2].setTargets(enemyArray);
-      singleShotArray[i * 2 + 1].setTargets(enemyArray);
+      shotArray[i].setTargets(concatEnemyArray);
+      singleShotArray[i * 2].setTargets(concatEnemyArray);
+      singleShotArray[i * 2 + 1].setTargets(concatEnemyArray);
       shotArray[i].setExplosions(explosionArray);
       singleShotArray[i * 2].setExplosions(explosionArray);
       singleShotArray[i * 2 + 1].setExplosions(explosionArray);
@@ -270,6 +304,10 @@
     // 同様にショットの準備状況も確認する
     shotArray.map((v) => {
       ready = ready && v.ready;
+    });
+    // 同様にホーミングショットの準備状況も確認する
+    homingArray.map((v) => {
+        ready = ready && v.ready;
     });
     // 同様にシングルショットの準備状況も確認する
     singleShotArray.map((v) => {
@@ -363,104 +401,124 @@
       if (viper.life <= 0) {
         scene.use("gameover");
       }
-      });
-      // 間隔調整のための空白のシーン
-      scene.add("blank", (time) => {
-        // シーンのフレーム数が 150 になったとき次のシーンへ
-        if (scene.frame === 150) {
-          scene.use("invade_wave_move_type");
-        }
-        // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
-        if (viper.life <= 0) {
-          scene.use("gameover");
-        }
-      });
-      // invade シーン（wave move type の敵キャラクターを生成）
-      scene.add("invade_wave_move_type", (time) => {
-          // シーンのフレーム数が 50 で割り切れるときは敵キャラクターを配置する
-          if (scene.frame % 50 === 0) {
-            // ライフが 0 の状態の敵キャラクター（小）が見つかったら配置する
-            for (let i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
-              if (enemyArray[i].life <= 0) {
-                let e = enemyArray[i];
-                // ここからさらに２パターンに分ける
-                // frame が 200 以下かどうかで分ける
-                if (scene.frame <= 200) {
-                  // 左側を進む
-                  e.set(CANVAS_WIDTH * 0.2, -e.height, 2, "wave");
-                } else {
-                  // 右側を進む
-                  e.set(CANVAS_WIDTH * 0.8, -e.height, 2, "wave");
-                }
-                break;
+    });
+    // 間隔調整のための空白のシーン
+    scene.add("blank", (time) => {
+      // シーンのフレーム数が 150 になったとき次のシーンへ
+      if (scene.frame === 150) {
+        scene.use("invade_wave_move_type");
+      }
+      // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+      if (viper.life <= 0) {
+        scene.use("gameover");
+      }
+    });
+    // invade シーン（wave move type の敵キャラクターを生成）
+    scene.add("invade_wave_move_type", (time) => {
+        // シーンのフレーム数が 50 で割り切れるときは敵キャラクターを配置する
+        if (scene.frame % 50 === 0) {
+          // ライフが 0 の状態の敵キャラクター（小）が見つかったら配置する
+          for (let i = 0; i < ENEMY_SMALL_MAX_COUNT; ++i) {
+            if (enemyArray[i].life <= 0) {
+              let e = enemyArray[i];
+              // ここからさらに２パターンに分ける
+              // frame が 200 以下かどうかで分ける
+              if (scene.frame <= 200) {
+                // 左側を進む
+                e.set(CANVAS_WIDTH * 0.2, -e.height, 2, "wave");
+              } else {
+                // 右側を進む
+                e.set(CANVAS_WIDTH * 0.8, -e.height, 2, "wave");
               }
-            }
-          }
-          // シーンのフレーム数が 450 になったとき次のシーンへ
-          if (scene.frame === 450) {
-            scene.use("invade_large_type");
-          }
-          // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
-          if (viper.life <= 0) {
-            scene.use("gameover");
-          }
-      });
-      // invade シーン（large type の敵キャラクターを生成）
-      scene.add("invade_large_type", (time) => {
-        // シーンのフレーム数が 100 になった際に敵キャラクター（大）を配置する
-        if (scene.frame === 100) {
-          // ライフが 0 の状態の敵キャラクター（大）が見つかったら配置する
-          let i = ENEMY_SMALL_MAX_COUNT + ENEMY_LARGE_MAX_COUNT;
-          for (let j = ENEMY_SMALL_MAX_COUNT; j < i; ++j) {
-            if (enemyArray[j].life <= 0) {
-              let e = enemyArray[j];
-              // 画面中央あたりから出現しライフが多い
-              e.set(CANVAS_WIDTH / 2, -e.height, 50, "large");
               break;
             }
           }
         }
-        // シーンのフレーム数が 500 になったとき intro へ
-        if (scene.frame === 500) {
-          scene.use("intro");
+        // シーンのフレーム数が 450 になったとき次のシーンへ
+        if (scene.frame === 450) {
+          scene.use("invade_large_type");
         }
         // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
         if (viper.life <= 0) {
           scene.use("gameover");
         }
-      });
-      // ゲームオーバーシーン
-      // ここでは画面にゲームオーバーの文字が流れ続けるようにする
-      scene.add("gameover", (time) => {
-        // 流れる文字の幅は画面の幅の半分を最大の幅とする
-        let textWidth = CANVAS_WIDTH / 2;
-        // 文字の幅を全体の幅に足し、ループする幅を決める
-        let loopWidth = CANVAS_WIDTH + textWidth;
-        // フレーム数に対する除算の剰余を計算し、文字列の位置とする
-        let x = CANVAS_WIDTH - (scene.frame * 2) % loopWidth;
-        // 文字列の描画
-        ctx.font = "bold 72px sans-serif";
-        util.drawText("GAME OVER", x, CANVAS_HEIGHT / 2, "#ff0000", textWidth);
-        // 再スタートのための処理
-        if (restart === true) {
-          // 再スタートフラグはここでまず最初に下げておく
-          restart = false;
-          // スコアをリセットしておく
-          gameScore = 0;
-          // 再度スタートするための座標等の設定
-          viper.setComing(
-            CANVAS_WIDTH / 2,   // 登場演出時の開始 X 座標
-            CANVAS_HEIGHT + 50, // 登場演出時の開始 Y 座標
-            CANVAS_WIDTH / 2,   // 登場演出を終了とする X 座標
-            CANVAS_HEIGHT - 100 // 登場演出を終了とする Y 座標
-          );
-          // シーンを intro に設定
-          scene.use("intro");
+    });
+    // invade シーン（large type の敵キャラクターを生成）
+    scene.add("invade_large_type", (time) => {
+      // シーンのフレーム数が 100 になった際に敵キャラクター（大）を配置する
+      if (scene.frame === 100) {
+        // ライフが 0 の状態の敵キャラクター（大）が見つかったら配置する
+        let i = ENEMY_SMALL_MAX_COUNT + ENEMY_LARGE_MAX_COUNT;
+        for (let j = ENEMY_SMALL_MAX_COUNT; j < i; ++j) {
+          if (enemyArray[j].life <= 0) {
+            let e = enemyArray[j];
+            // 画面中央あたりから出現しライフが多い
+            e.set(CANVAS_WIDTH / 2, -e.height, 50, "large");
+            break;
+          }
         }
-      });
-      // 一番最初のシーンには intro を設定する
-      scene.use("intro");
-    }
+      }
+      // シーンのフレーム数が 500 になったとき次のシーンへ
+      if (scene.frame === 500) {
+        scene.use("invade_boss");
+      }
+      // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+      if (viper.life <= 0) {
+        scene.use("gameover");
+      }
+    });
+    // invade シーン（ボスキャラクターを生成）
+    scene.add("invade_boss", (time) => {
+      // シーンのフレーム数が 0 となる最初のフレームでボスを登場させる
+      if (scene.frame === 0) {
+        // 画面中央上から登場するように位置を指定し、ライフは 250 に設定
+        boss.set(CANVAS_WIDTH / 2, -boss.height, 250);
+        // ボスキャラクター自身のモードは invade から始まるようにする
+        boss.setMode("invade");
+      }
+      // 自機キャラクターが被弾してライフが 0 になっていたらゲームオーバー
+      // ゲームオーバー画面が表示されているうちにボス自身は退避させる
+      if (viper.life <= 0) {
+        scene.use("gameover");
+        boss.setMode("escape");
+      }
+      // ボスが破壊されたらシーンを intro に設定する
+      if (boss.life <= 0) {
+        scene.use("intro");
+      }
+    });
+    // ゲームオーバーシーン
+    // ここでは画面にゲームオーバーの文字が流れ続けるようにする
+    scene.add("gameover", (time) => {
+      // 流れる文字の幅は画面の幅の半分を最大の幅とする
+      let textWidth = CANVAS_WIDTH / 2;
+      // 文字の幅を全体の幅に足し、ループする幅を決める
+      let loopWidth = CANVAS_WIDTH + textWidth;
+      // フレーム数に対する除算の剰余を計算し、文字列の位置とする
+      let x = CANVAS_WIDTH - (scene.frame * 2) % loopWidth;
+      // 文字列の描画
+      ctx.font = "bold 72px sans-serif";
+      util.drawText("GAME OVER", x, CANVAS_HEIGHT / 2, "#ff0000", textWidth);
+      // 再スタートのための処理
+      if (restart === true) {
+        // 再スタートフラグはここでまず最初に下げておく
+        restart = false;
+        // スコアをリセットしておく
+        gameScore = 0;
+        // 再度スタートするための座標等の設定
+        viper.setComing(
+          CANVAS_WIDTH / 2,   // 登場演出時の開始 X 座標
+          CANVAS_HEIGHT + 50, // 登場演出時の開始 Y 座標
+          CANVAS_WIDTH / 2,   // 登場演出を終了とする X 座標
+          CANVAS_HEIGHT - 100 // 登場演出を終了とする Y 座標
+        );
+        // シーンを intro に設定
+        scene.use("intro");
+      }
+    });
+    // 一番最初のシーンには intro を設定する
+    scene.use("intro");
+  }
   
   function render() {
     // グローバルなアルファを必ず1.0で描画処理を開始する
@@ -485,9 +543,12 @@
     // 自機キャラクターの状態を更新する
     viper.update();
 
+    // ボスキャラクターの状態を更新する
+    boss.update();
+
     // 敵キャラクターの状態を更新する
     enemyArray.map((v) => {
-        v.update();
+      v.update();
     });
 
     // ショットの状態を更新する
@@ -502,6 +563,11 @@
 
     // 敵キャラクターのショットの状態を更新する
     enemyShotArray.map((v) => {
+      v.update();
+    });
+
+    // ボスキャラクターのホーミングショットの状態を更新する
+    homingArray.map((v) => {
       v.update();
     });
 
