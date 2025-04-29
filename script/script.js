@@ -132,6 +132,11 @@
    * @type {Array<BackgroundStar>}
    */
   let backgroundStarArray = [];
+  /**
+   * 効果音再生のための Sound クラスのインスタンス
+   * @type {Sound}
+   */
+  let sound = null;
   
   window.addEventListener("load", () => {
     // ユーティリティクラスを初期化
@@ -140,11 +145,29 @@
     canvas = util.canvas;
     // ユーティリティクラスから2dコンテキストを取得
     ctx = util.context;
-  
-    // 初期化処理を行う
-    initialize();
-    // インスタンスの状態を確認する
-    loadCheck();
+    // canvasの大きさを設定
+    canvas.width = CANVAS_WIDTH;
+    canvas.height = CANVAS_HEIGHT;
+
+    // スタートボタンへの参照を取得
+    let button = document.body.querySelector("#start_button");
+    // スタートボタンが押されたときに初期化が実行されるようにする
+    button.addEventListener("click", () => {
+      // ボタンを複数回押せないようにdisabled属性を付与する
+      button.disabled = true;
+      // ユーザーがクリック操作を行った際にはじめてオーディオ関連の処理を開始する
+      sound = new Sound();
+      // 音声データを読み込み、準備完了してから初期化処理を行う
+      sound.load("./sound/explosion.mp3", (error) => {
+        // もしエラーが発生した場合はアラートを表示して終了する
+        if (error != null) {
+          alert("ファイルの読み込みエラーです");
+          return;
+        }
+        initialize(); // 初期化処理を行う
+        loadCheck(); // インスタンスの状態を確認する
+      });
+    }, false);
   }, false);
   
   /**
@@ -152,9 +175,6 @@
    */
   function initialize() {
     let i;
-    // canvasの大きさを設定
-    canvas.width = CANVAS_WIDTH;
-    canvas.height = CANVAS_HEIGHT;
 
     // シーンを初期化する
     scene = new SceneManager();
@@ -162,6 +182,8 @@
     // 爆発エフェクトを初期化する
     for (i = 0; i < EXPLOSION_MAX_COUNT; ++i) {
       explosionArray[i] = new Explosion(ctx, 100.0, 15, 40.0, 1.0);
+      // 爆発エフェクト発生時に効果音を再生できるよう設定する
+      explosionArray[i].setSound(sound);
     }
   
     // ショットを初期化する
